@@ -119,27 +119,76 @@ pub async fn get_account_analytics(
     // 调用 GetAnalytics API
     let analytics_service = AnalyticsService::new();
     
-    // 先尝试带 is_team 参数的请求（团队账户会包含 percent_code_written）
-    let response_result = analytics_service.get_analytics(&windsurf_api_key, start_timestamp, end_timestamp, is_team).await;
+    // 三层降级策略：
+    // 1. 完整请求（包含所有查询类型）
+    // 2. 非团队请求（移除 percent_code_written）
+    // 3. 仅 cascade 请求（最小化请求体）
     
-    // 如果请求失败且是团队账户，重试不带 percent_code_written（可能是团队成员而非管理员）
+    let response_result = analytics_service.get_analytics(&token, start_timestamp, end_timestamp, is_team).await;
+    
     let response_body = match response_result {
-        Ok(body) => body,
+        Ok(body) => Some(body),
         Err(e) if is_team => {
+            // 第一次降级：团队请求失败，尝试不带 percent_code_written
             println!("[get_account_analytics] Team request failed, retrying without percent_code_written: {}", e);
-            analytics_service.get_analytics(&windsurf_api_key, start_timestamp, end_timestamp, false)
-                .await
-                .map_err(|e| e.to_string())?
+            match analytics_service.get_analytics(&token, start_timestamp, end_timestamp, false).await {
+                Ok(body) => Some(body),
+                Err(e) => {
+                    // 第二次降级：尝试仅请求 cascade 数据
+                    println!("[get_account_analytics] Full request failed, trying cascade-only: {}", e);
+                    match analytics_service.get_analytics_cascade_only(&token, start_timestamp, end_timestamp).await {
+                        Ok(body) => Some(body),
+                        Err(e) => {
+                            // 第三次降级：无时间戳请求
+                            println!("[get_account_analytics] Cascade-only failed, trying no-timestamp: {}", e);
+                            match analytics_service.get_analytics_no_timestamp(&token).await {
+                                Ok(body) => Some(body),
+                                Err(e) => {
+                                    println!("[get_account_analytics] All requests failed, returning empty data: {}", e);
+                                    None
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         },
-        Err(e) => return Err(e.to_string()),
+        Err(e) => {
+            // 第一次降级：尝试仅请求 cascade 数据
+            println!("[get_account_analytics] Full request failed, trying cascade-only: {}", e);
+            match analytics_service.get_analytics_cascade_only(&token, start_timestamp, end_timestamp).await {
+                Ok(body) => Some(body),
+                Err(e) => {
+                    // 第二次降级：无时间戳请求（模仿官网）
+                    println!("[get_account_analytics] Cascade-only failed, trying no-timestamp: {}", e);
+                    match analytics_service.get_analytics_no_timestamp(&token).await {
+                        Ok(body) => Some(body),
+                        Err(e) => {
+                            println!("[get_account_analytics] All requests failed, returning empty data: {}", e);
+                            None
+                        }
+                    }
+                }
+            }
+        },
     };
 
-    // 解析响应
-    let parsed_response = proto_parser::parse_get_analytics_response(&response_body)
-        .map_err(|e| format!("Failed to parse analytics response: {}", e))?;
-
-    // 提取并转换数据
-    let analytics_data = extract_analytics_data(&parsed_response)?;
+    // 如果 API 调用失败，返回空数据而不是错误
+    let analytics_data = if let Some(body) = response_body {
+        // 解析响应
+        match proto_parser::parse_get_analytics_response(&body) {
+            Ok(parsed_response) => {
+                // 提取并转换数据
+                extract_analytics_data(&parsed_response).unwrap_or_default()
+            },
+            Err(e) => {
+                println!("[get_account_analytics] Failed to parse response, returning empty data: {}", e);
+                AnalyticsData::default()
+            }
+        }
+    } else {
+        AnalyticsData::default()
+    };
 
     Ok(analytics_data)
 }
@@ -254,6 +303,26 @@ fn extract_analytics_data(parsed: &Value) -> Result<AnalyticsData, String> {
         if let Some(custom_data) = result.get("subMesssage_16") {
             println!("[extract_analytics_data] Found custom_stats data (Field 16)");
             custom_query_results = extract_custom_query_response(custom_data)?;
+        }
+
+        // ===== 新增字段调试 - 打印所有字段以便分析 =====
+        // cascade_stats (QueryRequest field 20) 对应的响应字段
+        if let Some(stats_data) = result.get("subMesssage_15") {
+            println!("[extract_analytics_data] Found subMesssage_15 (cascade_stats?): {:?}", stats_data);
+        }
+        // cascade_summary (QueryRequest field 31) 对应的响应字段
+        if let Some(summary_data) = result.get("subMesssage_26") {
+            println!("[extract_analytics_data] Found subMesssage_26 (cascade_summary?): {:?}", summary_data);
+        }
+        // 打印所有未处理的字段
+        if let Some(obj) = result.as_object() {
+            for (key, value) in obj.iter() {
+                if !["subMesssage_1", "subMesssage_2", "subMesssage_3", "subMesssage_6", "subMesssage_7", 
+                     "subMesssage_9", "subMesssage_11", "subMesssage_16", "subMesssage_18", "subMesssage_19", 
+                     "subMesssage_20"].contains(&key.as_str()) {
+                    println!("[extract_analytics_data] UNHANDLED field {}: {:?}", key, value);
+                }
+            }
         }
     }
 
@@ -546,18 +615,30 @@ fn calculate_summary(
 // ===== 新增提取函数 =====
 
 /// 提取代码贡献百分比 (Field 9: percent_code_written)
+/// API 返回字段映射（根据实际日志）:
+/// - double_1: percent_code_written (0.9997...)
+/// - int_4: user_bytes (892)
+/// - int_5: codeium_bytes (4383029)
+/// - int_6: total_bytes (4383921)
+/// - int_7: 未知 (1)
+/// - int_8: codeium_bytes_by_cascade (4383028)
 fn extract_percent_code_written(data: &Value) -> Result<PercentCodeWritten, String> {
     println!("[extract_percent_code_written] Data: {:?}", data);
     
+    let codeium_bytes = data.get("int_5").and_then(|v| v.as_i64()).unwrap_or(0);
+    let codeium_bytes_by_cascade = data.get("int_8").and_then(|v| v.as_i64()).unwrap_or(0);
+    // 自动补全字节数 = AI 总字节数 - Cascade 字节数
+    let codeium_bytes_by_autocomplete = codeium_bytes.saturating_sub(codeium_bytes_by_cascade);
+    
     Ok(PercentCodeWritten {
         percent_code_written: data.get("double_1").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        codeium_bytes_by_autocomplete: data.get("int_2").and_then(|v| v.as_i64()).unwrap_or(0),
-        codeium_bytes_by_command: data.get("int_3").and_then(|v| v.as_i64()).unwrap_or(0),
+        codeium_bytes_by_autocomplete,
+        codeium_bytes_by_command: 0, // API 未返回此字段
         user_bytes: data.get("int_4").and_then(|v| v.as_i64()).unwrap_or(0),
-        codeium_bytes: data.get("int_5").and_then(|v| v.as_i64()).unwrap_or(0),
+        codeium_bytes,
         total_bytes: data.get("int_6").and_then(|v| v.as_i64()).unwrap_or(0),
-        codeium_bytes_by_supercomplete: data.get("int_7").and_then(|v| v.as_i64()).unwrap_or(0),
-        codeium_bytes_by_cascade: data.get("int_8").and_then(|v| v.as_i64()).unwrap_or(0),
+        codeium_bytes_by_supercomplete: 0, // API 未返回此字段
+        codeium_bytes_by_cascade,
     })
 }
 

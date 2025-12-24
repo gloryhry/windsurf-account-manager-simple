@@ -124,7 +124,6 @@
     <div class="card-actions">
       <!-- 第一排按钮（6个） -->
       <div class="action-buttons">
-        <!-- 批量重置团队积分 - simple 版本已禁用
         <el-tooltip content="批量重置团队积分" placement="top">
           <el-button
             size="small"
@@ -136,7 +135,6 @@
             :loading="isResettingCredits"
           />
         </el-tooltip>
-        -->
 
         <el-tooltip content="查询账单" placement="top">
           <el-button 
@@ -252,7 +250,6 @@
           />
         </el-tooltip>
 
-        <!-- 团队管理 - simple 版本已禁用
         <el-tooltip content="团队管理" placement="top">
           <el-button
             size="small"
@@ -263,7 +260,6 @@
             @click="handleTeamManagement"
           />
         </el-tooltip>
-        -->
 
         <!-- 更换订阅 - simple 版本已禁用
         <el-tooltip content="更换订阅" placement="top">
@@ -368,10 +364,10 @@ import {
   Switch,
   DataAnalysis,
   Setting,
-  // UserFilled, // simple 版本已禁用
+  UserFilled,
   Money,
   // Sell, // simple 版本已禁用
-  // Refresh, // simple 版本已禁用
+  Refresh,
   // Rank // simple 版本已禁用
 } from '@element-plus/icons-vue';
 import type { Account } from '@/types';
@@ -983,19 +979,17 @@ function handleTeamSettings() {
   showTeamSettingsDialog.value = true;
 }
 
-// simple 版本已禁用
-// function handleTeamManagement() {
-//   showTeamManagementDialog.value = true;
-// }
+function handleTeamManagement() {
+  showTeamManagementDialog.value = true;
+}
 
 function handleAutoRefill() {
   // 显示自动充值设置对话框
   showAutoRefillDialog.value = true;
 }
 
-// simple 版本已禁用 - 批量重置团队成员积分
-/* eslint-disable @typescript-eslint/no-unused-vars */
-async function _handleBatchResetTeamCredits() {
+// 批量重置团队成员积分
+async function handleBatchResetTeamCredits() {
   isResettingCredits.value = true;
   try {
     // Step 1: 获取团队成员列表
@@ -1421,7 +1415,6 @@ async function handleSwitchAccount() {
 }
 
 // simple 版本已禁用的功能 - 保留函数避免 TypeScript 报错
-void _handleBatchResetTeamCredits;
 void handleUpdatePlan;
 void handleDeleteWindsurfUser;
 </script>
@@ -1785,6 +1778,7 @@ void handleDeleteWindsurfUser;
   align-items: center;
   justify-content: center;
   gap: 3px;
+  white-space: nowrap;
   border-radius: 6px;
   box-shadow: 
     0 2px 4px rgba(0, 0, 0, 0.1),
@@ -1818,10 +1812,18 @@ void handleDeleteWindsurfUser;
   filter: brightness(1.05);
 }
 
+.plan-tag :deep(.el-tag__content) {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 3px !important;
+}
+
 .plan-tag .el-icon {
   font-size: 11px;
   margin-right: 1px;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+  display: inline-flex !important;
 }
 
 /* 套餐颜色层级：Free < Trial < Pro < Teams < Enterprise */
@@ -2069,6 +2071,7 @@ void handleDeleteWindsurfUser;
   height: 20px !important;
   border-radius: 4px !important;
   display: inline-flex !important;
+  flex-direction: row !important;
   align-items: center !important;
   gap: 4px !important;
   flex: 1;
@@ -2077,9 +2080,17 @@ void handleDeleteWindsurfUser;
   font-weight: 500;
 }
 
+.info-tag :deep(.el-tag__content) {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
 .info-tag .el-icon {
   font-size: 10px !important;
   margin-right: 1px;
+  display: inline-flex !important;
 }
 
 .info-tag span {
@@ -2144,9 +2155,9 @@ void handleDeleteWindsurfUser;
   display: flex;
   gap: 4px;
   justify-content: space-evenly;
+  flex-wrap: nowrap;
   align-items: center;
   padding: 2px;
-  flex-wrap: nowrap;
   height: 28px;
 }
 

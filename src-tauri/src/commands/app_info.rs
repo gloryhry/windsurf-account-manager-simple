@@ -19,7 +19,7 @@ pub async fn get_app_version(app: AppHandle) -> Result<serde_json::Value, String
 #[command]
 pub async fn get_app_title(app: AppHandle) -> Result<String, String> {
     let version = app.package_info().version.to_string();
-    Ok(format!("Windsurf Account Manager v{}", version))
+    Ok(format!("windsurf-account-manager-simple v{}", version))
 }
 
 /// 重置HTTP客户端（用于从网络故障中恢复）

@@ -53,7 +53,7 @@ pub fn run() {
             // 获取版本号并设置窗口标题
             let version = app.package_info().version.to_string();
             if let Some(window) = app.get_webview_window("main") {
-                let title = format!("windsurf-account-manager v{}", version);
+                let title = format!("windsurf-account-manager-simple v{}", version);
                 window.set_title(&title).ok();
             }
             

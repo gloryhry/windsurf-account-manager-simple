@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 // ============== 代码贡献百分比 (Field 9: percent_code_written) ==============
 
 /// 代码贡献百分比统计
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PercentCodeWritten {
     /// AI 编写代码占比 (%)
     pub percent_code_written: f64,
@@ -23,25 +23,11 @@ pub struct PercentCodeWritten {
     pub codeium_bytes_by_cascade: i64,
 }
 
-impl Default for PercentCodeWritten {
-    fn default() -> Self {
-        Self {
-            percent_code_written: 0.0,
-            codeium_bytes_by_autocomplete: 0,
-            codeium_bytes_by_command: 0,
-            user_bytes: 0,
-            codeium_bytes: 0,
-            total_bytes: 0,
-            codeium_bytes_by_supercomplete: 0,
-            codeium_bytes_by_cascade: 0,
-        }
-    }
-}
 
 // ============== 补全统计 (Field 1: completion_stats) ==============
 
 /// 代码补全统计
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CompletionStatistics {
     /// 接受次数
     pub num_acceptances: i64,
@@ -61,20 +47,6 @@ pub struct CompletionStatistics {
     pub acceptance_rate: f64,
 }
 
-impl Default for CompletionStatistics {
-    fn default() -> Self {
-        Self {
-            num_acceptances: 0,
-            num_rejections: 0,
-            num_lines_accepted: 0,
-            num_bytes_accepted: 0,
-            num_users: 0,
-            active_developer_days: 0,
-            active_developer_hours: 0,
-            acceptance_rate: 0.0,
-        }
-    }
-}
 
 /// 按日期的补全统计
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,7 +73,7 @@ pub struct CompletionByLanguage {
 // ============== Chat 统计 (Field 11: chat_stats) ==============
 
 /// Chat 统计
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ChatStats {
     /// 发送的聊天数
     pub chats_sent: i64,
@@ -135,27 +107,6 @@ pub struct ChatStats {
     pub active_developer_days: i64,
 }
 
-impl Default for ChatStats {
-    fn default() -> Self {
-        Self {
-            chats_sent: 0,
-            chats_received: 0,
-            chats_accepted: 0,
-            chats_inserted_at_cursor: 0,
-            chats_applied: 0,
-            chat_loc_used: 0,
-            chat_code_blocks_used: 0,
-            function_explain_count: 0,
-            function_docstring_count: 0,
-            function_refactor_count: 0,
-            code_block_explain_count: 0,
-            code_block_refactor_count: 0,
-            problem_explain_count: 0,
-            function_unit_tests_count: 0,
-            active_developer_days: 0,
-        }
-    }
-}
 
 /// 按日期的 Chat 统计
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,17 +151,12 @@ pub struct CustomQueryResponseItem {
 }
 
 /// 自定义查询响应
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CustomQueryResponse {
     /// 响应项列表
     pub items: Vec<CustomQueryResponseItem>,
 }
 
-impl Default for CustomQueryResponse {
-    fn default() -> Self {
-        Self { items: Vec::new() }
-    }
-}
 
 // ============== 原有结构 ==============
 
@@ -271,7 +217,7 @@ pub struct ModelUsageSummary {
 }
 
 /// 使用分析响应数据
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AnalyticsData {
     /// 每日 Cascade 代码行数统计 (Field 18: cascade_lines)
     pub daily_cascade_lines: Vec<DailyCascadeLinesCount>,
@@ -304,7 +250,7 @@ pub struct AnalyticsData {
 }
 
 /// 总体统计摘要
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AnalyticsSummary {
     /// 总代码行数（接受的）
     pub total_accepted_lines: i64,
